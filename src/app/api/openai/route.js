@@ -1,36 +1,39 @@
-import fetch from "node-fetch";
+import OpenAI from "openai";
 
-const endpoint = process.env["AZURE_OPENAI_ENDPOINT"];
-const apiKey = process.env["AZURE_OPENAI_KEY1"];
+const token = process.env["GITHUB_TOKEN"];
+const endpoint = process.env["GITHUB_ENDPOINT"];
 const modelName = "o1-preview";
+
+async function createCompletion(client, prompt, retries = 3) {
+  try {
+    const response = await client.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: modelName,
+    });
+    return response.choices[0].message.content;
+  } catch (error) {
+    if (error.status === 429 && retries > 0) {
+      const retryAfter = error.headers.get("Retry-After") || 60;
+      console.warn(
+        `Rate limit exceeded. Retrying after ${retryAfter} seconds...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
+      return createCompletion(client, prompt, retries - 1);
+    } else {
+      throw error;
+    }
+  }
+}
 
 export async function POST(req) {
   const { existingParts, requiredParts, budget } = await req.json();
 
   try {
+    const client = new OpenAI({ baseURL: endpoint, apiKey: token });
+
     const prompt = `I have the following parts: ${existingParts}. I need the following parts: ${requiredParts}. My budget is ${budget}. Suggest additional parts to complete my PC build within the budget.`;
 
-    const response = await fetch(
-      `${endpoint}/openai/deployments/${modelName}/completions?api-version=2022-12-01`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "api-key": apiKey,
-        },
-        body: JSON.stringify({
-          prompt,
-          max_tokens: 100,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Azure OpenAI API error: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const suggestions = data.choices[0].text;
+    const suggestions = await createCompletion(client, prompt);
 
     return new Response(JSON.stringify({ result: suggestions }), {
       status: 200,
@@ -39,7 +42,7 @@ export async function POST(req) {
       },
     });
   } catch (error) {
-    console.error("Error occurred:", error); // Log the error to the console
+    console.error("Error occurred:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: {
