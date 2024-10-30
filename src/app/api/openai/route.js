@@ -1,22 +1,36 @@
-import OpenAI from "openai";
+import fetch from "node-fetch";
 
-const token = process.env["GITHUB_TOKEN"];
-const endpoint = "https://models.inference.ai.azure.com";
+const endpoint = process.env["AZURE_OPENAI_ENDPOINT"];
+const apiKey = process.env["AZURE_OPENAI_KEY1"];
 const modelName = "o1-preview";
 
 export async function POST(req) {
   const { existingParts, requiredParts, budget } = await req.json();
-  const client = new OpenAI({ baseURL: endpoint, apiKey: token });
 
   try {
     const prompt = `I have the following parts: ${existingParts}. I need the following parts: ${requiredParts}. My budget is ${budget}. Suggest additional parts to complete my PC build within the budget.`;
 
-    const response = await client.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: modelName,
-    });
+    const response = await fetch(
+      `${endpoint}/openai/deployments/${modelName}/completions?api-version=2022-12-01`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": apiKey,
+        },
+        body: JSON.stringify({
+          prompt,
+          max_tokens: 100,
+        }),
+      }
+    );
 
-    const suggestions = response.choices[0].message.content;
+    if (!response.ok) {
+      throw new Error(`Azure OpenAI API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const suggestions = data.choices[0].text;
 
     return new Response(JSON.stringify({ result: suggestions }), {
       status: 200,
