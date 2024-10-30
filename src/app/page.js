@@ -3,7 +3,9 @@
 import { useState } from "react";
 
 export default function Home() {
-  const [prompt, setPrompt] = useState("");
+  const [existingParts, setExistingParts] = useState("");
+  const [requiredParts, setRequiredParts] = useState("");
+  const [budget, setBudget] = useState("");
   const [result, setResult] = useState("");
 
   const handleSubmit = async (e) => {
@@ -14,7 +16,7 @@ export default function Home() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ existingParts, requiredParts, budget }),
     });
 
     const data = await response.json();
@@ -23,16 +25,28 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
-      <h1 className="text-3xl font-bold mb-6">GitHub OpenAI Integration</h1>
+      <h1 className="text-3xl font-bold mb-6">PC Part Picker</h1>
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-md bg-white p-6 rounded-lg shadow-md"
       >
+        <textarea
+          value={existingParts}
+          onChange={(e) => setExistingParts(e.target.value)}
+          placeholder="Enter your existing parts"
+          className="w-full p-2 mb-4 border border-gray-300 rounded"
+        />
+        <textarea
+          value={requiredParts}
+          onChange={(e) => setRequiredParts(e.target.value)}
+          placeholder="Enter the parts you need"
+          className="w-full p-2 mb-4 border border-gray-300 rounded"
+        />
         <input
-          type="text"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Enter your prompt"
+          type="number"
+          value={budget}
+          onChange={(e) => setBudget(e.target.value)}
+          placeholder="Enter your budget"
           className="w-full p-2 mb-4 border border-gray-300 rounded"
         />
         <button
